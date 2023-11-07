@@ -1,7 +1,10 @@
 from __future__ import annotations
+from argparse import Action
+from unittest.mock import NonCallableMagicMock
 
 import numpy as np
 
+from minigrid.core.actions import ActionSpace
 from minigrid.core.world_object import WorldObj
 from minigrid.envs.babyai.core.verifier import (
     AfterInstr,
@@ -13,6 +16,41 @@ from minigrid.envs.babyai.core.verifier import (
     PickupInstr,
     PutNextInstr,
 )
+from numpy.core.fromnumeric import diagonal
+from numpy.lib.twodim_base import diag
+
+
+def dir2diagonal(direction: tuple):
+    if direction[0] == 0 and direction[1] == -1:
+        left = [-1, -1]
+        right = [1, -1]
+    elif direction[0] == 0 and direction[1] == 1:
+        left = [1, 1]
+        right = [-1, 1]
+    elif direction[0] == 1 and direction[1] == 0:
+        left = [1, -1]
+        right = [1, 1]
+    elif direction[0] == -1 and direction[1] == 0:
+        left = [-1, 1]
+        right = [-1, -1]
+    return np.array(left), np.array(right)
+
+
+def rightvec2diagonal(direction: tuple):
+    if direction[0] == 0 and direction[1] == -1:
+        right = [1, -1]
+        left = [1, 1]
+    elif direction[0] == 0 and direction[1] == 1:
+        right = [-1, 1]
+        left = [-1, -1]
+    elif direction[0] == 1 and direction[1] == 0:
+        right = [1, 1]
+        left = [1, 1]
+    elif direction[0] == -1 and direction[1] == 0:
+        right = [-1, -1]
+        left = [1, -1]
+
+    return np.array(right), np.array(left)
 
 
 class DisappearedBoxError(Exception):
@@ -66,7 +104,17 @@ class Subgoal:
         self.pos = self.bot.mission.unwrapped.agent_pos
         self.dir_vec = self.bot.mission.unwrapped.dir_vec
         self.right_vec = self.bot.mission.unwrapped.right_vec
+        self.right_vec_diagonal, self.left_vec_diagonal = rightvec2diagonal(
+            self.right_vec
+        )
+
         self.fwd_pos = self.pos + self.dir_vec
+        left_diag, right_diag = dir2diagonal(self.dir_vec)
+        self.fwd_pos_right = self.pos + right_diag
+        self.fwd_pos_left = self.pos + left_diag
+
+        self.fwd_cell_right = self.bot.mission.unwrapped.grid.get(*self.fwd_pos_right)
+        self.fwd_cell_left = self.bot.mission.unwrapped.grid.get(*self.fwd_pos_left)
         self.fwd_cell = self.bot.mission.unwrapped.grid.get(*self.fwd_pos)
         self.carrying = self.bot.mission.unwrapped.carrying
 
@@ -180,8 +228,40 @@ class OpenSubgoal(Subgoal):
     """
 
     def replan_before_action(self):
-        assert self.fwd_cell is not None, "Forward cell is empty"
-        assert self.fwd_cell.type == "door", "Forward cell has to be a door"
+        if False:
+            
+            if self.fwd_cell is not None:
+                if self.fwd_cell.type=="door":
+                    door_cell = self.fwd_cell 
+                    door_pos = self.fwd_pos
+
+            elif self.fwd_cell_left is not None:
+                if self.fwd_cell_left.type=="door":
+                    door_cell = self.fwd_cell_left
+                    door_pos = self.fwd_pos_left
+                    
+                    self.bot.stack.append(OpenSubgoal(self.bot))
+                    self.bot.stack.append(GoNextToSubgoal(self.bot, door_pos))
+
+                    return self.actions.forward
+
+            elif self.fwd_cell_right is not None:
+                if self.fwd_cell_right.type=="door":
+                    door_cell = self.fwd_cell_right
+                    door_pos = self.fwd_pos_right
+
+                    self.bot.stack.append(OpenSubgoal(self.bot))
+                    self.bot.stack.append(GoNextToSubgoal(self.bot, door_pos))
+
+                    return self.actions.forward
+            else:
+                raise ValueError("No door cell found")
+            print(door_cell,door_pos)
+        else:
+            assert self.fwd_cell is not None, "Forward cell is empty"
+            assert self.fwd_cell.type == "door", "Forward cell has to be a door"
+            door_cell = self.fwd_cell
+            door_pos = self.fwd_pos
 
         # If the door is locked, go find the key and then return
         # TODO: do we really need to be in front of the locked door
@@ -189,11 +269,11 @@ class OpenSubgoal(Subgoal):
         got_the_key = (
             self.carrying
             and self.carrying.type == "key"
-            and self.carrying.color == self.fwd_cell.color
+            and self.carrying.color == door_cell.color
         )
-        if self.fwd_cell.is_locked and not got_the_key:
+        if door_cell.is_locked and not got_the_key:
             # Find the key
-            key_desc = ObjDesc("key", self.fwd_cell.color)
+            key_desc = ObjDesc("key", door_cell.color)
             key_desc.find_matching_objs(self.bot.mission)
 
             # If we're already carrying something
@@ -209,7 +289,7 @@ class OpenSubgoal(Subgoal):
 
                 # Go back to the door and open it
                 self.bot.stack.append(OpenSubgoal(self.bot))
-                self.bot.stack.append(GoNextToSubgoal(self.bot, tuple(self.fwd_pos)))
+                self.bot.stack.append(GoNextToSubgoal(self.bot, tuple(door_pos)))
 
                 # Go to the key and pick it up
                 self.bot.stack.append(PickupSubgoal(self.bot))
@@ -229,22 +309,18 @@ class OpenSubgoal(Subgoal):
 
                 # Go back to the door and open it
                 self.bot.stack.append(OpenSubgoal(self.bot))
-                self.bot.stack.append(GoNextToSubgoal(self.bot, tuple(self.fwd_pos)))
+                self.bot.stack.append(GoNextToSubgoal(self.bot, tuple(door_pos)))
 
                 # Go to the key and pick it up
                 self.bot.stack.append(PickupSubgoal(self.bot))
                 self.bot.stack.append(GoNextToSubgoal(self.bot, key_desc))
             return
 
-        if self.fwd_cell.is_open:
-            self.bot.stack.append(CloseSubgoal(self.bot))
-            return
-
-        if self.fwd_cell.is_locked and self.reason is None:
+        if door_cell.is_locked and self.reason is None:
             self.bot.stack.pop()
             self.bot.stack.append(OpenSubgoal(self.bot, reason="Unlock"))
             return
-
+        
         return self.actions.toggle
 
     def replan_after_action(self, action_taken):
@@ -312,10 +388,15 @@ class GoNextToSubgoal(Subgoal):
             target_obj, target_pos = self.bot._find_obj_pos(
                 self.datum, self.reason == "PutNext"
             )
-            if not target_pos:
-                # No path found -> Explore the world
-                self.bot.stack.append(ExploreSubgoal(self.bot))
-                return
+            # TO-DO replace with environment variables that indicates fully observable
+            if True:
+                assert target_pos, "There should always be a path to the object"
+            else:
+                if not target_pos:
+                    # No path found -> Explore the world
+                    self.bot.stack.append(ExploreSubgoal(self.bot))
+                    return
+
         elif isinstance(self.datum, WorldObj):
             target_obj = self.datum
             target_pos = target_obj.cur_pos
@@ -344,9 +425,12 @@ class GoNextToSubgoal(Subgoal):
                 self.bot.stack.append(PickupSubgoal(self.bot))
                 self.bot.stack.append(GoNextToSubgoal(self.bot, key_desc))
                 return
+            else:
+                pass
 
         # The position we are on is the one we should go next to
         # -> Move away from it
+
         if manhattan_distance(target_pos, self.pos) == (
             1 if self.reason == "PutNext" else 0
         ):
@@ -356,16 +440,33 @@ class GoNextToSubgoal(Subgoal):
 
             if steppable(self.fwd_cell):
                 return self.actions.forward
-            if steppable(
-                self.bot.mission.unwrapped.grid.get(*(self.pos + self.right_vec))
-            ):
-                return self.actions.right
-            if steppable(
-                self.bot.mission.unwrapped.grid.get(*(self.pos - self.right_vec))
-            ):
+
+            if self.bot.action_space_type == ActionSpace.no_left:
+                if steppable(
+                    self.bot.mission.unwrapped.grid.get(*(self.pos + self.right_vec))
+                ):
+                    return self.actions.right
+                else:
+                    self.actions.right
+            elif self.bot.action_space_type == ActionSpace.no_right:
+                if steppable(
+                    self.bot.mission.unwrapped.grid.get(*(self.pos - self.right_vec))
+                ):
+                    return self.actions.left
+                else:
+                    self.actions.left
+            else:
+                if steppable(
+                    self.bot.mission.unwrapped.grid.get(*(self.pos + self.right_vec))
+                ):
+                    return self.actions.right
+                if steppable(
+                    self.bot.mission.unwrapped.grid.get(*(self.pos - self.right_vec))
+                ):
+                    return self.actions.left
+
+                # Spin and hope for the best
                 return self.actions.left
-            # Spin and hope for the best
-            return self.actions.left
 
         # We are facing the target cell
         # -> subgoal completed
@@ -413,18 +514,41 @@ class GoNextToSubgoal(Subgoal):
 
         # Choose the action in the case when the forward cell
         # is the one we should go next to
-        if np.array_equal(next_cell, self.fwd_pos):
-            if self.fwd_cell:
-                if self.fwd_cell.type == "door":
-                    assert not self.fwd_cell.is_locked
-                    if not self.fwd_cell.is_open:
+
+        if self.bot.action_space_type == ActionSpace.diagonal:
+            possible_forward_cells = [
+                (self.fwd_pos, self.fwd_cell),
+                (self.fwd_pos_left, self.fwd_cell_left),
+                (self.fwd_pos_right, self.fwd_cell_right),
+            ]
+        else:
+            possible_forward_cells = [(self.fwd_pos, self.fwd_cell)]
+
+        forward_type = -1
+        for k, (pos, cell) in enumerate(possible_forward_cells):
+            if np.array_equal(next_cell, pos):
+                forward_type = k
+                fwd_cell = cell
+                fwd_pos = pos
+                break
+
+        if forward_type != -1:
+            if fwd_cell:
+            
+                if fwd_cell.type == "door":
+                    if forward_type!=0:
+                        return self.actions.forward
+                    assert not fwd_cell.is_locked
+                    if not fwd_cell.is_open:
                         self.bot.stack.append(OpenSubgoal(self.bot))
                         return
                     else:
                         return self.actions.forward
-                if self.carrying:
+                
+                if self.carrying and forward_type==0:
                     drop_pos_cur = self.bot._find_drop_pos()
                     drop_pos_block = self.bot._find_drop_pos(drop_pos_cur)
+
                     # Take back the object being carried
                     self.bot.stack.append(PickupSubgoal(self.bot))
                     self.bot.stack.append(GoNextToSubgoal(self.bot, drop_pos_cur))
@@ -433,27 +557,49 @@ class GoNextToSubgoal(Subgoal):
                     self.bot.stack.append(DropSubgoal(self.bot))
                     self.bot.stack.append(GoNextToSubgoal(self.bot, drop_pos_block))
                     self.bot.stack.append(PickupSubgoal(self.bot))
-                    self.bot.stack.append(GoNextToSubgoal(self.bot, self.fwd_pos))
+                    self.bot.stack.append(GoNextToSubgoal(self.bot, fwd_pos))
 
                     # Drop the object being carried
                     self.bot.stack.append(DropSubgoal(self.bot))
                     self.bot.stack.append(GoNextToSubgoal(self.bot, drop_pos_cur))
+
                     return
-                else:
+                elif not self.carrying and forward_type==0:
                     drop_pos = self.bot._find_drop_pos()
                     self.bot.stack.append(DropSubgoal(self.bot))
                     self.bot.stack.append(GoNextToSubgoal(self.bot, drop_pos))
                     self.bot.stack.append(PickupSubgoal(self.bot))
                     return
+                else:
+                    return self.actions.forward
             else:
-                return self.actions.forward
+                if self.bot.action_space_type == ActionSpace.diagonal:
+                    if k == 0:
+                        return self.actions.forward
+                    elif k == 1:
+                        return self.actions.diagonal_left
+                    else:
+                        return self.actions.diagonal_right
+                else:
+                    return self.actions.forward
 
         # The forward cell is not the one we should go to
         # -> turn towards the direction we need to go
-        if np.array_equal(next_cell - self.pos, self.right_vec):
+
+        if self.bot.action_space_type == ActionSpace.no_left:
             return self.actions.right
-        elif np.array_equal(next_cell - self.pos, -self.right_vec):
+        elif self.bot.action_space_type == ActionSpace.no_right:
             return self.actions.left
+        else:
+            if np.array_equal(next_cell - self.pos, self.right_vec) or np.array_equal(
+                next_cell - self.pos, self.right_vec_diagonal
+            ):
+                return self.actions.right
+
+            if np.array_equal(next_cell - self.pos, -self.right_vec) or np.array_equal(
+                next_cell - self.pos, self.left_vec_diagonal
+            ):
+                return self.actions.left
 
         # If we reach this point in the code,  then the cell is behind us.
         # Instead of choosing left or right randomly,
@@ -540,7 +686,7 @@ class ExploreSubgoal(Subgoal):
             self.bot.stack.append(GoNextToSubgoal(self.bot, door_obj, reason="Open"))
             return
 
-        assert False, "0nothing left to explore"
+        assert False, "nothing left to explore"
 
     def is_exploratory(self):
         return True
@@ -574,22 +720,30 @@ class BabyAIBot:
 
     """
 
-    def __init__(self, mission):
+    def __init__(self, mission, action_space_type: int):
         # Mission to be solved
         self.mission = mission
+        self.action_space_type = action_space_type
 
         # Grid containing what has been mapped out
         # self.grid = Grid(mission.unwrapped.width, mission.unwrapped.height)
-
+     
         # Visibility mask. True for explored/seen, false for unexplored.
-        self.vis_mask = np.zeros(
-            shape=(mission.unwrapped.width, mission.unwrapped.height), dtype=bool
-        )
+        # To Do: Replace with environment attribute that indicates whether fully observable or not
+        if True:
+            self.vis_mask = np.ones(
+                shape=(mission.unwrapped.width, mission.unwrapped.height), dtype=bool
+            )
+        else:
+            self.vis_mask = np.zeros(
+                shape=(mission.unwrapped.width, mission.unwrapped.height), dtype=bool
+            )
 
         # Stack of tasks/subtasks to complete (tuples)
         self.stack = []
 
         # Process/parse the instructions
+
         self._process_instr(mission.unwrapped.instrs)
 
         # How many BFS searches this bot has performed
@@ -635,11 +789,13 @@ class BabyAIBot:
         while self.stack:
             subgoal = self.stack[-1]
             suggested_action = subgoal.replan_before_action()
+         
             # If is not clear what can be done for the current subgoal
             # (because it is completed, because there is blocker,
             # or because exploration is required), keep replanning
             if suggested_action is not None:
                 break
+
         if not self.stack:
             suggested_action = self.mission.unwrapped.actions.done
 
@@ -711,32 +867,33 @@ class BabyAIBot:
     def _process_obs(self):
         """Parse the contents of an observation/image and update our state."""
 
-        grid, vis_mask = self.mission.unwrapped.gen_obs_grid()
+        # TO-DO Replace by environment property that indicates full observability
+        if not True:
+            grid, vis_mask = self.mission.unwrapped.gen_obs_grid()
+            view_size = self.mission.unwrapped.agent_view_size
+            pos = self.mission.unwrapped.agent_pos
+            f_vec = self.mission.unwrapped.dir_vec
+            r_vec = self.mission.unwrapped.right_vec
 
-        view_size = self.mission.unwrapped.agent_view_size
-        pos = self.mission.unwrapped.agent_pos
-        f_vec = self.mission.unwrapped.dir_vec
-        r_vec = self.mission.unwrapped.right_vec
+            # Compute the absolute coordinates of the top-left corner
+            # of the agent's view area
+            top_left = pos + f_vec * (view_size - 1) - r_vec * (view_size // 2)
 
-        # Compute the absolute coordinates of the top-left corner
-        # of the agent's view area
-        top_left = pos + f_vec * (view_size - 1) - r_vec * (view_size // 2)
+            # Mark everything in front of us as visible
+            for vis_j in range(0, view_size):
+                for vis_i in range(0, view_size):
+                    if not vis_mask[vis_i, vis_j]:
+                        continue
 
-        # Mark everything in front of us as visible
-        for vis_j in range(0, view_size):
-            for vis_i in range(0, view_size):
-                if not vis_mask[vis_i, vis_j]:
-                    continue
+                    # Compute the world coordinates of this cell
+                    abs_i, abs_j = top_left - (f_vec * vis_j) + (r_vec * vis_i)
 
-                # Compute the world coordinates of this cell
-                abs_i, abs_j = top_left - (f_vec * vis_j) + (r_vec * vis_i)
+                    if abs_i < 0 or abs_i >= self.vis_mask.shape[0]:
+                        continue
+                    if abs_j < 0 or abs_j >= self.vis_mask.shape[1]:
+                        continue
 
-                if abs_i < 0 or abs_i >= self.vis_mask.shape[0]:
-                    continue
-                if abs_j < 0 or abs_j >= self.vis_mask.shape[1]:
-                    continue
-
-                self.vis_mask[abs_i, abs_j] = True
+                    self.vis_mask[abs_i, abs_j] = True
 
     def _remember_current_state(self):
         self.prev_agent_pos = self.mission.unwrapped.agent_pos
@@ -774,7 +931,6 @@ class BabyAIBot:
         queue = [(state, None) for state in initial_states]
         grid = self.mission.unwrapped.grid
         previous_pos = dict()
-
         while len(queue) > 0:
             state, prev_pos = queue[0]
             queue = queue[1:]
@@ -808,15 +964,64 @@ class BabyAIBot:
                 elif cell.type == "door":
                     # If the door is closed, don't visit neighbors
                     if not cell.is_open:
-                        continue
+                        if not ignore_blockers:
+                            continue
                 elif not ignore_blockers:
                     continue
 
             # Location to which the bot can get without turning
             # are put in the queue first
-            for k, l in [(di, dj), (dj, di), (-dj, -di), (-di, -dj)]:
+            surrounding_cells = []
+            for k in [-1,0,1]:
+                for l in [-1,0,1]:
+                    if k==0 and l==0:
+                        continue
+                    surrounding_cells.append(grid.get(i+k,j+l))
+
+            diagonal_possible = True
+            for cell in surrounding_cells:
+                if cell!=None:
+                    diagonal_possible = False
+
+            if self.action_space_type == ActionSpace.diagonal and diagonal_possible:
+    
+
+                if di == 0:
+                    reachable_changes = [
+                        ((di, dj), (di, dj)),
+                        ((di - 1, dj), (di, dj)),
+                        ((di + 1, dj), (di, dj)),
+                        ((dj, di), (dj, di)),
+                        ((dj, di - dj), (dj, di)),
+                        ((-dj, -di), (-dj, -di)),
+                        ((-dj, -di - dj), (-dj, -di)),
+                        ((-di, -dj), (-di, -dj)),
+                    ]
+                elif dj == 0:
+                    reachable_changes = [
+                        ((di, dj), (di, dj)),
+                        ((di, dj + 1), (di, dj)),
+                        ((di, dj - 1), (di, dj)),
+                        ((dj, di), (dj, di)),
+                        ((dj - di, di), (dj, di)),
+                        ((-dj, -di), (-dj, -di)),
+                        ((-dj - di, -di), (-dj, -di)),
+                        ((-di, -dj), (-di, -dj)),
+                    ]
+                else:
+                    raise ValueError("This direction should not exist.")
+               
+            else:
+                reachable_changes = [
+                    ((di, dj), (di, dj)),
+                    ((dj, di), (dj, di)),
+                    ((-dj, -di), (-dj, -di)),
+                    ((-di, -dj), (-di, -dj)),
+                ]
+
+            for (k, l), (s, r) in reachable_changes:
                 next_pos = (i + k, j + l)
-                next_dir_vec = (k, l)
+                next_dir_vec = (s, r)
                 next_state = (*next_pos, *next_dir_vec)
                 queue.append((next_state, (i, j)))
 
@@ -839,6 +1044,7 @@ class BabyAIBot:
         path, finish, previous_pos = self._breadth_first_search(
             initial_states, accept_fn, ignore_blockers=False
         )
+
         if not path and try_with_blockers:
             with_blockers = True
             path, finish, _ = self._breadth_first_search(
@@ -978,10 +1184,12 @@ class BabyAIBot:
         """
 
         if isinstance(instr, GoToInstr):
+         
             self.stack.append(GoNextToSubgoal(self, instr.desc))
             return
 
         if isinstance(instr, OpenInstr):
+       
             self.stack.append(OpenSubgoal(self))
             self.stack.append(GoNextToSubgoal(self, instr.desc, reason="Open"))
             return
@@ -1009,6 +1217,7 @@ class BabyAIBot:
         if isinstance(instr, AfterInstr):
             self._process_instr(instr.instr_a)
             self._process_instr(instr.instr_b)
+
             return
 
         assert False, "unknown instruction type"

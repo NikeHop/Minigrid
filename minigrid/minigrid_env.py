@@ -45,6 +45,7 @@ class MiniGridEnv(gym.Env):
         highlight: bool = True,
         tile_size: int = TILE_PIXELS,
         agent_pov: bool = False,
+        action_space: int = 0
     ):
         # Initialize mission
         self.mission = mission_space.sample()
@@ -58,6 +59,9 @@ class MiniGridEnv(gym.Env):
 
         # Action enumeration for this environment
         self.actions = Actions
+
+        # Action Space of the agent 
+        self.action_space_type = action_space
 
         # Actions are discrete integer values
         self.action_space = spaces.Discrete(len(self.actions))
@@ -522,25 +526,53 @@ class MiniGridEnv(gym.Env):
     ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         self.step_count += 1
 
+  
         reward = 0
         terminated = False
         truncated = False
 
         # Get the position in front of the agent
         fwd_pos = self.front_pos
+     
+        if self.agent_dir==0:
+            fwd_left_pos = (self.front_pos[0],self.front_pos[1]-1)
+            fwd_right_pos = (self.front_pos[0],self.front_pos[1]+1)
+        elif self.agent_dir==1:
+            fwd_left_pos = (self.front_pos[0]+1,self.front_pos[1])
+            fwd_right_pos = (self.front_pos[0]-1,self.front_pos[1])
+        elif self.agent_dir==2:
+            fwd_left_pos = (self.front_pos[0],self.front_pos[1]+1)
+            fwd_right_pos = (self.front_pos[0],self.front_pos[1]-1)
+        elif self.agent_dir==3:
+            fwd_left_pos = (self.front_pos[0]-1,self.front_pos[1])
+            fwd_right_pos = (self.front_pos[0]+1,self.front_pos[1])
+        else:
+            raise ValueError(f'The agent directory should be between 0-3 {self.agent_dir}')
+
+       
 
         # Get the contents of the cell in front of the agent
         fwd_cell = self.grid.get(*fwd_pos)
+        fwd_left_cell = self.grid.get(*fwd_left_pos)
+        fwd_right_cell = self.grid.get(*fwd_right_pos)
 
         # Rotate left
         if action == self.actions.left:
-            self.agent_dir -= 1
-            if self.agent_dir < 0:
-                self.agent_dir += 4
+            if self.action_space_type == 1:
+                # No left turn possible
+                pass
+            else:
+                self.agent_dir -= 1
+                if self.agent_dir < 0:
+                    self.agent_dir += 4
 
         # Rotate right
         elif action == self.actions.right:
-            self.agent_dir = (self.agent_dir + 1) % 4
+            if self.action_space_type == 2:
+                # No right turn possible
+                pass
+            else:
+                self.agent_dir = (self.agent_dir + 1) % 4
 
         # Move forward
         elif action == self.actions.forward:
@@ -551,7 +583,32 @@ class MiniGridEnv(gym.Env):
                 reward = self._reward()
             if fwd_cell is not None and fwd_cell.type == "lava":
                 terminated = True
+        
+        # Move diagonal right
+        elif action == self.actions.diagonal_right:
+            if self.action_space_type == 3:
+                if fwd_right_cell is None or fwd_right_cell.can_overlap():
+                    self.agent_pos = tuple(fwd_right_pos)
+                    
+                if fwd_right_cell is not None and fwd_right_cell.type == "goal":
+                    terminated = True
+                    reward = self._reward()
+                if fwd_right_cell is not None and fwd_right_cell.type == "lava":
+                    terminated = True
+               
+        
+        # Move diagonal left 
+        elif action == self.actions.diagonal_left:
+            if self.action_space_type == 3:
+                if fwd_left_cell is None or fwd_left_cell.can_overlap():
+                    self.agent_pos = tuple(fwd_left_pos)
+                if fwd_left_cell is not None and fwd_left_cell.type == "goal":
+                    terminated = True
+                    reward = self._reward()
+                if fwd_left_cell is not None and fwd_left_cell.type == "lava":
+                    terminated = True
 
+            
         # Pick up an object
         elif action == self.actions.pickup:
             if fwd_cell and fwd_cell.can_pickup():
@@ -782,3 +839,4 @@ class MiniGridEnv(gym.Env):
     def close(self):
         if self.window:
             pygame.quit()
+

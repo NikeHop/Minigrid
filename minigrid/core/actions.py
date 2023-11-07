@@ -18,3 +18,24 @@ class Actions(IntEnum):
 
     # Done completing task
     done = 6
+
+    # Step diagonal left 
+    diagonal_left = 7
+
+    # Step diagonal right 
+    diagonal_right = 8
+
+
+class ActionSpace(IntEnum):
+    # Standard 
+    standard = 0
+
+    # No left turns
+    no_left = 1
+
+    # No right turns 
+    no_right = 2
+
+    # Diagonal steps possible 
+    diagonal = 3
+
