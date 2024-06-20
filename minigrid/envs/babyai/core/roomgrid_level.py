@@ -68,6 +68,7 @@ class RoomGridLevel(RoomGrid):
         )
 
     def reset(self, **kwargs):
+
         obs = super().reset(**kwargs)
 
         # Recreate the verifier
@@ -146,6 +147,7 @@ class RoomGridLevel(RoomGrid):
         """
         Perform some validation on the generated instructions
         """
+    
         # Gather the colors of locked doors
         colors_of_locked_doors = []
         if hasattr(self, "unblocking") and self.unblocking:
