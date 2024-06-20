@@ -839,4 +839,3 @@ class MiniGridEnv(gym.Env):
     def close(self):
         if self.window:
             pygame.quit()
-
