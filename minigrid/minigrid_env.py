@@ -63,6 +63,8 @@ class MiniGridEnv(gym.Env):
         # Action Space of the agent 
         self.action_space_type = action_space
 
+        self.legal_actions = self.action_space_type.get_legal_actions()
+
         # Actions are discrete integer values
         self.action_space = spaces.Discrete(len(self.actions))
 
@@ -422,6 +424,42 @@ class MiniGridEnv(gym.Env):
 
         return self.agent_pos + self.dir_vec
 
+    @property
+    def front_left_pos(self):
+        """
+        Get the position of the cell that in front of the agent and one cell to the left.
+        """
+        if self.agent_dir == 0:
+            return (self.front_pos[0], self.front_pos[1] - 1)
+            fwd_right_pos = (self.front_pos[0], self.front_pos[1] + 1)
+        elif self.agent_dir == 1:
+            return (self.front_pos[0] + 1, self.front_pos[1])
+            fwd_right_pos = (self.front_pos[0] - 1, self.front_pos[1])
+        elif self.agent_dir == 2:
+            return (self.front_pos[0], self.front_pos[1] + 1)
+            fwd_right_pos = (self.front_pos[0], self.front_pos[1] - 1)
+        elif self.agent_dir == 3:
+            return (self.front_pos[0] - 1, self.front_pos[1])
+            fwd_right_pos = (self.front_pos[0] + 1, self.front_pos[1])
+        else:
+            raise ValueError(f'The agent direction should be between 0-3 {self.agent_dir}')
+
+    @property
+    def front_right_pos(self):
+        """
+        Get the position of the cell that in front of the agent and one cell to the right.
+        """
+        if self.agent_dir == 0:
+            return (self.front_pos[0], self.front_pos[1] + 1)
+        elif self.agent_dir == 1:
+            return (self.front_pos[0] - 1, self.front_pos[1])
+        elif self.agent_dir == 2:
+            return (self.front_pos[0], self.front_pos[1] - 1)
+        elif self.agent_dir == 3:
+            return (self.front_pos[0] + 1, self.front_pos[1])
+        else:
+            raise ValueError(f'The agent direction should be between 0-3 {self.agent_dir}')
+
     def get_view_coords(self, i, j):
         """
         Translate and rotate absolute grid coordinates (i, j) into the
@@ -531,75 +569,40 @@ class MiniGridEnv(gym.Env):
         terminated = False
         truncated = False
 
-        # Get the position in front of the agent
-        fwd_pos = self.front_pos
-     
-        if self.agent_dir==0:
-            fwd_left_pos = (self.front_pos[0],self.front_pos[1]-1)
-            fwd_right_pos = (self.front_pos[0],self.front_pos[1]+1)
-        elif self.agent_dir==1:
-            fwd_left_pos = (self.front_pos[0]+1,self.front_pos[1])
-            fwd_right_pos = (self.front_pos[0]-1,self.front_pos[1])
-        elif self.agent_dir==2:
-            fwd_left_pos = (self.front_pos[0],self.front_pos[1]+1)
-            fwd_right_pos = (self.front_pos[0],self.front_pos[1]-1)
-        elif self.agent_dir==3:
-            fwd_left_pos = (self.front_pos[0]-1,self.front_pos[1])
-            fwd_right_pos = (self.front_pos[0]+1,self.front_pos[1])
-        else:
-            raise ValueError(f'The agent directory should be between 0-3 {self.agent_dir}')
+        if action in self.legal_actions:
+            # Check whether the action is legal (in the action space otherwise no-op)
 
-       
-
-        # Get the contents of the cell in front of the agent
-        fwd_cell = self.grid.get(*fwd_pos)
-        fwd_left_cell = self.grid.get(*fwd_left_pos)
-        fwd_right_cell = self.grid.get(*fwd_right_pos)
-
-        # Rotate left
-        if action == self.actions.left:
-            if self.action_space_type == 1:
-                # No left turn possible
-                pass
-            else:
+            # Rotate left
+            if action == self.actions.left:
                 self.agent_dir -= 1
                 if self.agent_dir < 0:
                     self.agent_dir += 4
 
-        # Rotate right
-        elif action == self.actions.right:
-            if self.action_space_type == 2:
-                # No right turn possible
-                pass
-            else:
+            # Rotate right
+            elif action == self.actions.right:
                 self.agent_dir = (self.agent_dir + 1) % 4
 
-        # Move forward
-        elif action == self.actions.forward:
-            if fwd_cell is None or fwd_cell.can_overlap():
-                self.agent_pos = tuple(fwd_pos)
-            if fwd_cell is not None and fwd_cell.type == "goal":
-                terminated = True
-                reward = self._reward()
-            if fwd_cell is not None and fwd_cell.type == "lava":
-                terminated = True
-        
-        # Move diagonal right
-        elif action == self.actions.diagonal_right:
-            if self.action_space_type == 3:
+            # Move forward
+            elif action == self.actions.forward:
+                terminated, reward = self._move_forward()
+
+            # Move diagonal right
+            elif action == self.actions.diagonal_right:
+                fwd_right_pos = self.front_right_pos
+                fwd_right_cell = self.grid.get(*fwd_right_pos)
                 if fwd_right_cell is None or fwd_right_cell.can_overlap():
                     self.agent_pos = tuple(fwd_right_pos)
-                    
+
                 if fwd_right_cell is not None and fwd_right_cell.type == "goal":
                     terminated = True
                     reward = self._reward()
                 if fwd_right_cell is not None and fwd_right_cell.type == "lava":
                     terminated = True
-               
-        
-        # Move diagonal left 
-        elif action == self.actions.diagonal_left:
-            if self.action_space_type == 3:
+
+            # Move diagonal left
+            elif action == self.actions.diagonal_left:
+                fwd_left_pos = self.front_left_pos
+                fwd_left_cell = self.grid.get(*fwd_left_pos)
                 if fwd_left_cell is None or fwd_left_cell.can_overlap():
                     self.agent_pos = tuple(fwd_left_pos)
                 if fwd_left_cell is not None and fwd_left_cell.type == "goal":
@@ -608,34 +611,62 @@ class MiniGridEnv(gym.Env):
                 if fwd_left_cell is not None and fwd_left_cell.type == "lava":
                     terminated = True
 
-            
-        # Pick up an object
-        elif action == self.actions.pickup:
-            if fwd_cell and fwd_cell.can_pickup():
-                if self.carrying is None:
-                    self.carrying = fwd_cell
-                    self.carrying.cur_pos = np.array([-1, -1])
-                    self.grid.set(fwd_pos[0], fwd_pos[1], None)
+            # Turn 180 degrees
+            elif action == self.actions.turn_around:
+                self.agent_dir = (self.agent_dir + 2) % 4
 
-        # Drop an object
-        elif action == self.actions.drop:
-            if not fwd_cell and self.carrying:
-                self.grid.set(fwd_pos[0], fwd_pos[1], self.carrying)
-                self.carrying.cur_pos = fwd_pos
-                self.carrying = None
+            # Move to one dir in 1 step (combines turn + forward)
+            elif action == self.actions.right_move:
+                self.agent_dir = 0
+                terminated, truncated = self._move_forward()
 
-        # Toggle/activate an object
-        elif action == self.actions.toggle:
-            if fwd_cell:
-                fwd_cell.toggle(self, fwd_pos)
+            elif action == self.actions.down_move:
+                self.agent_dir = 1
+                terminated, truncated = self._move_forward()
 
-        # Done action (not used by default)
-        elif action == self.actions.done:
-            pass
+            elif action == self.actions.left_move:
+                self.agent_dir = 2
+                terminated, truncated = self._move_forward()
 
+            elif action == self.actions.up_move:
+                self.agent_dir = 3
+                terminated, truncated = self._move_forward()
+
+            # Pick up an object
+            elif action == self.actions.pickup:
+                fwd_pos = self.front_pos
+                fwd_cell = self.grid.get(*fwd_pos)
+                if fwd_cell and fwd_cell.can_pickup():
+                    if self.carrying is None:
+                        self.carrying = fwd_cell
+                        self.carrying.cur_pos = np.array([-1, -1])
+                        self.grid.set(fwd_pos[0], fwd_pos[1], None)
+
+            # Drop an object
+            elif action == self.actions.drop:
+                fwd_pos = self.front_pos
+                fwd_cell = self.grid.get(*fwd_pos)
+                if not fwd_cell and self.carrying:
+                    self.grid.set(fwd_pos[0], fwd_pos[1], self.carrying)
+                    self.carrying.cur_pos = fwd_pos
+                    self.carrying = None
+
+            # Toggle/activate an object
+            elif action == self.actions.toggle:
+                fwd_pos = self.front_pos
+                fwd_cell = self.grid.get(*fwd_pos)
+                if fwd_cell:
+                    fwd_cell.toggle(self, fwd_pos)
+
+            # Done action (not used by default)
+            elif action == self.actions.done:
+                pass
+
+            else:
+                raise ValueError(f"Unknown action: {action}")
         else:
-            raise ValueError(f"Unknown action: {action}")
-
+            # Actions not in the action space, nothing happens
+            pass
         if self.step_count >= self.max_steps:
             truncated = True
 
@@ -839,3 +870,20 @@ class MiniGridEnv(gym.Env):
     def close(self):
         if self.window:
             pygame.quit()
+
+
+    def _move_forward(self):
+        reward = 0
+        terminated = False
+
+        fwd_pos = self.front_pos
+        fwd_cell = self.grid.get(*fwd_pos)
+        if fwd_cell is None or fwd_cell.can_overlap():
+            self.agent_pos = tuple(fwd_pos)
+        if fwd_cell is not None and fwd_cell.type == "goal":
+            terminated = True
+            reward = self._reward()
+        if fwd_cell is not None and fwd_cell.type == "lava":
+            terminated = True
+        return terminated, reward
+
