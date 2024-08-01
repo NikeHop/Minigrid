@@ -54,6 +54,9 @@ class Grid:
         grid2 = other.encode()
         return np.array_equal(grid2, grid1)
 
+    def __hash__(self):
+        return hash(str(self.encode().tolist()).encode("utf8"))
+
     def __ne__(self, other: Grid) -> bool:
         return not self == other
 

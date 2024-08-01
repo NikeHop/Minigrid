@@ -174,6 +174,14 @@ class MiniGridEnv(gym.Env):
 
         return sample_hash.hexdigest()[:size]
 
+
+    def set_state(self, grid, agent_pos, agent_dir, carrying):
+        self.grid = grid
+        self.agent_pos = agent_pos
+        self.agent_dir = agent_dir
+        self.step_count = 0
+        self.carrying = carrying
+
     @property
     def steps_remaining(self):
         return self.max_steps - self.step_count
