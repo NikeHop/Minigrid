@@ -12,7 +12,7 @@ import pygame.freetype
 from gymnasium import spaces
 from gymnasium.core import ActType, ObsType
 
-from minigrid.core.actions import Actions
+from minigrid.core.actions import Actions, ActionSpace
 from minigrid.core.constants import COLOR_NAMES, DIR_TO_VEC, TILE_PIXELS
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -61,7 +61,7 @@ class MiniGridEnv(gym.Env):
         self.actions = Actions
 
         # Action Space of the agent 
-        self.action_space_type = action_space
+        self.action_space_type = ActionSpace(action_space)
 
         self.legal_actions = self.action_space_type.get_legal_actions()
 
