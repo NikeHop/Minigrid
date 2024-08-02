@@ -1237,6 +1237,7 @@ class BabyAIBot:
         ):
             raise DisappearedBoxError("A box was opened. I am not sure I can help now.")
 
+
 class BabyAIBFSBot:
     def __init__(self, env, action_space: ActionSpace):
         self.env = env
@@ -1249,7 +1250,7 @@ class BabyAIBFSBot:
 
     def plan(self):
         # Save initial env state
-        init_state = copy.deepcopy(self.get_env_state())
+        init_state = self.get_env_state()
 
         # Create queue for BFS
         queue = deque()
@@ -1257,13 +1258,13 @@ class BabyAIBFSBot:
 
         # Create map to reconstruct the trajectory once the path is found
         previous_state = dict()  # state -> (previous_state, action) map
-        previous_state[init_state] = (None, None)
+        previous_state[str(init_state)] = (None, None)
         bfs_step_counter = 0
 
         # BFS
         while len(queue) > 0:
-            # state = copy.deepcopy(queue.popleft())
             state = queue.popleft()
+            str_state = str(state)
             bfs_step_counter += 1
 
             # Try all actions in action space
@@ -1276,17 +1277,17 @@ class BabyAIBFSBot:
                 # Perform transition
                 _, reward, done, _, _ = self.env.step(a)
                 # Get new env state
-                next_state = copy.deepcopy(self.get_env_state())
-
+                next_state = self.get_env_state()
+                str_next_state = str(next_state)
                 # If not already visited
-                if next_state not in previous_state:
-                    previous_state[next_state] = (state, a)
+                if str_next_state not in previous_state:
+                    previous_state[str_next_state] = (str_state, a)
                     # If path to goal was found
                     if done and reward > 0:
                         # Reset env state to initial state
                         self.env.unwrapped.set_state(*init_state)
                         # Return action sequence that reaches the goal
-                        return self.decode_path(last_state=next_state, previous_state=previous_state)
+                        return self.decode_path(last_state=str_next_state, previous_state=previous_state)
                     else:
                         queue.append(next_state)
             # Path not found
