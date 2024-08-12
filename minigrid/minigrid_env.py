@@ -433,40 +433,56 @@ class MiniGridEnv(gym.Env):
         return self.agent_pos + self.dir_vec
 
     @property
+    def back_pos(self):
+        """
+        Get the position of the cell that is behind the agent
+        """
+
+        return self.agent_pos - self.dir_vec
+
+    @property
+    def right_pos(self):
+        """
+        Get the position of the cell that is right from the agent
+        """
+        return self.agent_pos + DIR_TO_VEC[(self.agent_dir + 1) % 4]
+
+    @property
+    def left_pos(self):
+        """
+        Get the position of the cell that is left from the agent
+        """
+        return self.agent_pos + DIR_TO_VEC[(self.agent_dir - 1) % 4]
+
+    @property
     def front_left_pos(self):
         """
         Get the position of the cell that in front of the agent and one cell to the left.
         """
-        if self.agent_dir == 0:
-            return (self.front_pos[0], self.front_pos[1] - 1)
-            fwd_right_pos = (self.front_pos[0], self.front_pos[1] + 1)
-        elif self.agent_dir == 1:
-            return (self.front_pos[0] + 1, self.front_pos[1])
-            fwd_right_pos = (self.front_pos[0] - 1, self.front_pos[1])
-        elif self.agent_dir == 2:
-            return (self.front_pos[0], self.front_pos[1] + 1)
-            fwd_right_pos = (self.front_pos[0], self.front_pos[1] - 1)
-        elif self.agent_dir == 3:
-            return (self.front_pos[0] - 1, self.front_pos[1])
-            fwd_right_pos = (self.front_pos[0] + 1, self.front_pos[1])
-        else:
-            raise ValueError(f'The agent direction should be between 0-3 {self.agent_dir}')
+        return self.left_pos + self.dir_vec
 
     @property
     def front_right_pos(self):
         """
         Get the position of the cell that in front of the agent and one cell to the right.
         """
-        if self.agent_dir == 0:
-            return (self.front_pos[0], self.front_pos[1] + 1)
-        elif self.agent_dir == 1:
-            return (self.front_pos[0] - 1, self.front_pos[1])
-        elif self.agent_dir == 2:
-            return (self.front_pos[0], self.front_pos[1] - 1)
-        elif self.agent_dir == 3:
-            return (self.front_pos[0] + 1, self.front_pos[1])
-        else:
-            raise ValueError(f'The agent direction should be between 0-3 {self.agent_dir}')
+        return self.right_pos + self.dir_vec
+
+    @property
+    def back_left_pos(self):
+        """
+        Get the position of the cell that is behind the agent and one cell to the left.
+        """
+
+        return self.left_pos - self.dir_vec
+
+    @property
+    def back_right_pos(self):
+        """
+        Get the position of the cell that is behind the agent and one cell to the right.
+        """
+
+        return self.right_pos - self.dir_vec
 
     def get_view_coords(self, i, j):
         """
@@ -592,53 +608,61 @@ class MiniGridEnv(gym.Env):
 
             # Move forward
             elif action == self.actions.forward:
-                terminated, reward = self._move_forward()
+                terminated, reward = self._move(self.front_pos)
+
+            # Move backward
+            elif action == self.actions.backward:
+                terminated, reward = self._move(self.back_pos)
+
+            # Move left while keeping the direction
+            elif action == self.actions.left_move_no_turn:
+                terminated, reward = self._move(self.left_pos)
+
+            # Move right while keeping the direction
+            elif action == self.actions.right_move_no_turn:
+                terminated, reward = self._move(self.right_pos)
 
             # Move diagonal right
             elif action == self.actions.diagonal_right:
-                fwd_right_pos = self.front_right_pos
-                fwd_right_cell = self.grid.get(*fwd_right_pos)
-                if fwd_right_cell is None or fwd_right_cell.can_overlap():
-                    self.agent_pos = tuple(fwd_right_pos)
-
-                if fwd_right_cell is not None and fwd_right_cell.type == "goal":
-                    terminated = True
-                    reward = self._reward()
-                if fwd_right_cell is not None and fwd_right_cell.type == "lava":
-                    terminated = True
+                terminated, reward = self._move(self.front_right_pos)
 
             # Move diagonal left
             elif action == self.actions.diagonal_left:
-                fwd_left_pos = self.front_left_pos
-                fwd_left_cell = self.grid.get(*fwd_left_pos)
-                if fwd_left_cell is None or fwd_left_cell.can_overlap():
-                    self.agent_pos = tuple(fwd_left_pos)
-                if fwd_left_cell is not None and fwd_left_cell.type == "goal":
-                    terminated = True
-                    reward = self._reward()
-                if fwd_left_cell is not None and fwd_left_cell.type == "lava":
-                    terminated = True
+                terminated, reward = self._move(self.front_left_pos)
+
+            # Move diagonal backwards left
+            elif action == self.actions.diagonal_backwards_left:
+                terminated, reward = self._move(self.back_left_pos)
+
+            # Move diagonal backwards right
+            elif action == self.actions.diagonal_backwards_right:
+                terminated, reward = self._move(self.back_right_pos)
+
+            # Move diagonal backwards left
+            elif action == self.actions.diagonal_backwards_left:
+                terminated, reward = self._move(self.front_left_pos)
 
             # Turn 180 degrees
             elif action == self.actions.turn_around:
                 self.agent_dir = (self.agent_dir + 2) % 4
 
+            # WSAD actions
             # Move to one dir in 1 step (combines turn + forward)
             elif action == self.actions.right_move:
                 self.agent_dir = 0
-                terminated, truncated = self._move_forward()
+                terminated, truncated = self._move(self.front_pos)
 
             elif action == self.actions.down_move:
                 self.agent_dir = 1
-                terminated, truncated = self._move_forward()
+                terminated, truncated = self._move(self.front_pos)
 
             elif action == self.actions.left_move:
                 self.agent_dir = 2
-                terminated, truncated = self._move_forward()
+                terminated, truncated = self._move(self.front_pos)
 
             elif action == self.actions.up_move:
                 self.agent_dir = 3
-                terminated, truncated = self._move_forward()
+                terminated, truncated = self._move(self.front_pos)
 
             # Pick up an object
             elif action == self.actions.pickup:
@@ -879,19 +903,20 @@ class MiniGridEnv(gym.Env):
         if self.window:
             pygame.quit()
 
+    def _move(self, pos):
+        """
+        Tries to move agent to given position. Checks for colision and lava/goal.
+        """
 
-    def _move_forward(self):
         reward = 0
         terminated = False
 
-        fwd_pos = self.front_pos
-        fwd_cell = self.grid.get(*fwd_pos)
-        if fwd_cell is None or fwd_cell.can_overlap():
-            self.agent_pos = tuple(fwd_pos)
-        if fwd_cell is not None and fwd_cell.type == "goal":
+        cell = self.grid.get(*pos)
+        if cell is None or cell.can_overlap():
+            self.agent_pos = tuple(pos)
+        if cell is not None and cell.type == "goal":
             terminated = True
             reward = self._reward()
-        if fwd_cell is not None and fwd_cell.type == "lava":
+        if cell is not None and cell.type == "lava":
             terminated = True
         return terminated, reward
-
