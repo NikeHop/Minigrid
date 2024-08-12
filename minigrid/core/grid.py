@@ -60,6 +60,9 @@ class Grid:
     def __ne__(self, other: Grid) -> bool:
         return not self == other
 
+    def __str__(self):
+        return str(self.encode())
+
     def copy(self) -> Grid:
         from copy import deepcopy
 
