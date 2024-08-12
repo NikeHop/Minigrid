@@ -34,6 +34,11 @@ class Actions(IntEnum):
     # Turn 180 degrees
     turn_around = 13
 
+    diagonal_backwards_left = 14
+    diagonal_backwards_right = 15
+    left_move_no_turn = 16
+    right_move_no_turn = 17
+    backward = 18
 
 
 class ActionSpace(IntEnum):
@@ -52,6 +57,9 @@ class ActionSpace(IntEnum):
     # WSAD movement (up down left right) turn + move with single action
     wsad = 4
 
+    # All adjacent cells (includes diagonals) + right turn for turning
+    dir8 = 5
+
     def get_legal_actions(self) -> tuple(Actions, ...):
         if self == ActionSpace.standard:
             return (Actions.left, Actions.right, Actions.forward, Actions.pickup, Actions.drop, Actions.toggle, Actions.done)
@@ -62,7 +70,23 @@ class ActionSpace(IntEnum):
         elif self == ActionSpace.diagonal:
             return (Actions.left, Actions.right, Actions.forward, Actions.pickup, Actions.drop, Actions.toggle, Actions.done, Actions.diagonal_left, Actions.diagonal_right)
         elif self == ActionSpace.wsad:
-            return (Actions.right_move, Actions.down_move, Actions.left_move, Actions.up_move)#, Actions.pickup, Actions.drop, Actions.toggle, Actions.done)
+            return (Actions.right_move, Actions.down_move, Actions.left_move, Actions.up_move, Actions.pickup, Actions.drop, Actions.toggle, Actions.done)
+        elif self == ActionSpace.dir8:
+            return (
+                Actions.right_move_no_turn,
+                Actions.backward,
+                Actions.left_move_no_turn,
+                Actions.forward,
+                Actions.diagonal_backwards_left,
+                Actions.diagonal_backwards_right,
+                Actions.diagonal_right,
+                Actions.diagonal_left,
+                Actions.right,
+                Actions.pickup,
+                Actions.drop,
+                Actions.toggle,
+                Actions.done
+            )
         else:
             raise RuntimeError(f'Unknown actionspace {self}')
 
