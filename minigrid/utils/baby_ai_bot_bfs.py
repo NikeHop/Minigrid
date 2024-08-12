@@ -721,8 +721,16 @@ class BabyAIBot:
                 obj_pos = obj_desc.obj_poss[i]
 
                 if self.vis_mask[obj_pos]:
+                    if adjacent:
+                        def accept_fn(pos, dir, cell):
+                            fwd_cell = self.mission.unwrapped.grid.get(pos[0] + dir[0], pos[1] + dir[1])
+                            man_dist = abs(pos[0] + dir[0] - obj_pos[0]) + abs(pos[1] + dir[1] - obj_pos[1])
+                            return fwd_cell is None and man_dist == 1
+                    else:
+                        accept_fn = lambda pos, dir, cell: (pos[0] + dir[0] == obj_pos[0]) and (pos[1] + dir[1] == obj_pos[1])
+
                     shortest_path_to_obj, _, with_blockers, actions = self._shortest_path(
-                        lambda pos, dir, cell: (pos[0] + dir[0] == obj_pos[0]) and (pos[1] + dir[1] == obj_pos[1]),
+                        accept_fn=accept_fn,
                         try_with_blockers=True
                     )
                     assert shortest_path_to_obj is not None
