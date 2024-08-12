@@ -57,3 +57,7 @@ DIR_TO_VEC = [
     # Up (negative Y)
     np.array((0, -1)),
 ]
+
+VEC_TO_DIR = {}
+for i in range(len(DIR_TO_VEC)):
+    VEC_TO_DIR[tuple(DIR_TO_VEC[i].tolist())] = i
