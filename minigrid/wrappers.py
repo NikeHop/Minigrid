@@ -416,9 +416,16 @@ class FullyObsWrapper(ObservationWrapper):
     def observation(self, obs):
         env = self.unwrapped
         full_grid = env.grid.encode()
-        full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
-            [OBJECT_TO_IDX["agent"], COLOR_TO_IDX["red"], env.agent_dir]
-        )
+        action_space_color_diff = 0
+        if not self.unwrapped.action_space_agent_color:
+            full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
+                [OBJECT_TO_IDX["agent"], COLOR_TO_IDX["red"] + action_space_color_diff, env.agent_dir]
+            )
+        else:
+            full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
+                [OBJECT_TO_IDX["agent"], int(self.unwrapped.action_space_type), env.agent_dir]
+            )
+
 
         return {**obs, "image": full_grid}
 
