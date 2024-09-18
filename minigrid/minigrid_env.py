@@ -30,6 +30,7 @@ class MiniGridEnv(gym.Env):
         "render_modes": ["human", "rgb_array"],
         "render_fps": 10,
     }
+    DEFAULT_AGENT_COLOR = (255, 0, 0)
 
     def __init__(
         self,
@@ -121,6 +122,7 @@ class MiniGridEnv(gym.Env):
         self.highlight = highlight
         self.tile_size = tile_size
         self.agent_pov = agent_pov
+        self.agent_color = MiniGridEnv.DEFAULT_AGENT_COLOR
 
     def reset(
         self,
@@ -776,6 +778,7 @@ class MiniGridEnv(gym.Env):
             agent_pos=(self.agent_view_size // 2, self.agent_view_size - 1),
             agent_dir=3,
             highlight_mask=vis_mask,
+            agent_color=self.agent_color
         )
 
         return img
@@ -824,6 +827,7 @@ class MiniGridEnv(gym.Env):
             self.agent_pos,
             self.agent_dir,
             highlight_mask=highlight_mask if highlight else None,
+            agent_color=self.agent_color
         )
 
         return img
@@ -920,3 +924,10 @@ class MiniGridEnv(gym.Env):
         if cell is not None and cell.type == "lava":
             terminated = True
         return terminated, reward
+
+
+    def set_agent_color(self, color):
+        assert len(color) == 3
+        for i in range(3):
+            assert 0 <= color[i] <= 255
+        self.agent_color = color
