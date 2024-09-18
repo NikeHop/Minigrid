@@ -46,7 +46,8 @@ class MiniGridEnv(gym.Env):
         highlight: bool = True,
         tile_size: int = TILE_PIXELS,
         agent_pov: bool = False,
-        action_space: int = 0
+        action_space: int = 0,
+        action_space_agent_color: bool= False
     ):
         # Initialize mission
         self.mission = mission_space.sample()
@@ -122,7 +123,11 @@ class MiniGridEnv(gym.Env):
         self.highlight = highlight
         self.tile_size = tile_size
         self.agent_pov = agent_pov
-        self.agent_color = MiniGridEnv.DEFAULT_AGENT_COLOR
+        self.action_space_agent_color = action_space_agent_color
+        if self.action_space_agent_color:
+            self.agent_color = self.action_space_type.get_agent_color()
+        else:
+            self.agent_color = MiniGridEnv.DEFAULT_AGENT_COLOR
 
     def reset(
         self,
@@ -590,7 +595,7 @@ class MiniGridEnv(gym.Env):
     ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         self.step_count += 1
 
-  
+
         reward = 0
         terminated = False
         truncated = False
