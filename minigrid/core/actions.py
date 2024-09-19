@@ -190,4 +190,23 @@ class ActionSpace(IntEnum):
                 Actions.backward,
             )
         else:
-            raise RuntimeError(f"Unknown actionspace {self}")
+            raise RuntimeError(f'Unknown actionspace {self}')
+
+
+    def get_agent_color(self) -> tuple[int, int, int]:
+        if self == ActionSpace.standard:
+            return (255, 0, 0)
+        elif self == ActionSpace.no_left:
+            return (0, 255, 0)
+        elif self == ActionSpace.no_right:
+            return (0, 0, 255)
+        elif self == ActionSpace.diagonal:
+            return (255, 255, 0)
+        elif self == ActionSpace.wsad:
+            return (0, 255, 255)
+        elif self == ActionSpace.dir8:
+            return (255, 0, 255)
+        else:
+            raise RuntimeError(f'Unknown actionspace {self}')
+
+

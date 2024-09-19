@@ -156,6 +156,7 @@ class Grid:
         highlight: bool = False,
         tile_size: int = TILE_PIXELS,
         subdivs: int = 3,
+        agent_color: tuple[int, int, int] = (255, 0, 0),
     ) -> np.ndarray:
         """
         Render a tile and cache the result
@@ -189,7 +190,7 @@ class Grid:
 
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5 * math.pi * agent_dir)
-            fill_coords(img, tri_fn, (255, 0, 0))
+            fill_coords(img, tri_fn, agent_color)
 
         # Highlight the cell if needed
         if highlight:
@@ -209,6 +210,7 @@ class Grid:
         agent_pos: tuple[int, int],
         agent_dir: int | None = None,
         highlight_mask: np.ndarray | None = None,
+        agent_color: tuple[int, int, int] = (255, 0, 0)
     ) -> np.ndarray:
         """
         Render this grid at a given scale
@@ -237,6 +239,7 @@ class Grid:
                     agent_dir=agent_dir if agent_here else None,
                     highlight=highlight_mask[i, j],
                     tile_size=tile_size,
+                    agent_color=agent_color
                 )
 
                 ymin = j * tile_size
