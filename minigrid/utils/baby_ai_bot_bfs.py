@@ -7,7 +7,7 @@ from unittest.mock import NonCallableMagicMock
 import numpy as np
 from collections import deque
 from minigrid.core.constants import DIR_TO_VEC, VEC_TO_DIR
-from minigrid.core.actions import ActionSpace, Actions
+from minigrid.core.actions import NamedActionSpace, Actions, ActionSpace
 from minigrid.core.world_object import WorldObj
 from minigrid.envs.babyai.core.verifier import (
     AfterInstr,
@@ -624,10 +624,10 @@ class BabyAIBot:
 
     """
 
-    def __init__(self, mission, action_space_type: int):
+    def __init__(self, mission, action_space: ActionSpace):
         # Mission to be solved
         self.mission = mission
-        self.action_space_type = action_space_type
+        self.action_space = action_space
 
         # Grid containing what has been mapped out
         # self.grid = Grid(mission.unwrapped.width, mission.unwrapped.height)
@@ -733,7 +733,8 @@ class BabyAIBot:
                         accept_fn=accept_fn,
                         try_with_blockers=True
                     )
-                    assert shortest_path_to_obj is not None
+                    if shortest_path_to_obj is None:
+                        raise ValueError("Mission Unsuccessful")
                     distance_to_obj = len(shortest_path_to_obj)
 
                     if with_blockers:
@@ -832,7 +833,7 @@ class BabyAIBot:
 
             # Location to which the bot can get without turning
             # are put in the queue first
-            for action in self.action_space_type.get_legal_actions():
+            for action in self.action_space.get_legal_actions():
                 if action == Actions.left:
                     new_pos = (i, j)
                     new_dir_vec = rotate_left((di, dj))
