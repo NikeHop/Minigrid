@@ -514,7 +514,7 @@ class GoNextToSubgoal(Subgoal):
         # -> explore the world
         if not path:
             self.bot.stack.append(ExploreSubgoal(self.bot))
-            return
+            raise ValueError("Path not found")
 
         # So there is a path (blocker, or non-blockers)
         # -> try following it
