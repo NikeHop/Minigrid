@@ -206,6 +206,12 @@ class ActionSpace(IntEnum):
             return (0, 255, 255)
         elif self == ActionSpace.dir8:
             return (255, 0, 255)
+        elif self == ActionSpace.left_right:
+            return (100, 100, 100)
+        elif self == ActionSpace.all_diagonal:
+            return (100, 200, 125)
+        elif self == ActionSpace.all:
+            return (200, 100, 125)
         else:
             raise RuntimeError(f'Unknown actionspace {self}')
 

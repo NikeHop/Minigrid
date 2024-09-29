@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from minigrid.core.constants import COLOR_NAMES
+from minigrid.core.constants import COLOR_NAMES, COLOR_ENV_NAMES
 from minigrid.core.grid import Grid
 from minigrid.core.world_object import Ball, Box, Door, Key, WorldObj
 from minigrid.minigrid_env import MiniGridEnv
@@ -415,7 +415,7 @@ class RoomGrid(MiniGridEnv):
         dists = []
 
         while len(dists) < num_distractors:
-            color = self._rand_elem(COLOR_NAMES)
+            color = self._rand_elem(COLOR_ENV_NAMES)
             type = self._rand_elem(["key", "ball", "box"])
             obj = (type, color)
 

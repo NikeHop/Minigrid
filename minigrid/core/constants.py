@@ -12,12 +12,16 @@ COLORS = {
     "purple": np.array([112, 39, 195]),
     "yellow": np.array([255, 255, 0]),
     "grey": np.array([100, 100, 100]),
+    "white": np.array([255, 255, 255]),
+    "orange": np.array([255, 165, 0]),
+    "pink": np.array([255, 192, 203]),
 }
 
 COLOR_NAMES = sorted(list(COLORS.keys()))
+COLOR_ENV_NAMES = [color for color in COLOR_NAMES if color not in ["white","orange","pink"]]
 
 # Used to map colors to integers
-COLOR_TO_IDX = {"red": 0, "green": 1, "blue": 2, "purple": 3, "yellow": 4, "grey": 5}
+COLOR_TO_IDX = {"red": 0, "green": 1, "blue": 2, "purple": 3, "yellow": 4, "grey": 5,"white":6,"pink":7,"orange":8}
 
 IDX_TO_COLOR = dict(zip(COLOR_TO_IDX.values(), COLOR_TO_IDX.keys()))
 
