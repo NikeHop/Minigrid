@@ -9,6 +9,9 @@
   <img src="figures/door-key-curriculum.gif" width=200 alt="Figure Door Key Curriculum">
 </p>
 
+
+**Note**: Added more action spaces to the initial Minigrid implementation
+
 The Minigrid library contains a collection of discrete grid-world environments to conduct research on Reinforcement Learning. The environments follow the [Gymnasium]() standard API and they are designed to be lightweight, fast, and easily customizable. 
 
 The documentation website is at [minigrid.farama.org](https://minigrid.farama.org/), and we have a public discord server (which we also use to coordinate development work) that you can join here: [https://discord.gg/bnJ6kubTg6](https://discord.gg/bnJ6kubTg6)
